@@ -28,8 +28,8 @@ type WebApp struct {
 
 func NewWebApp() app.App {
 	app := &WebApp{
-		server:           server.NewWebServer("html", "", 80),
-		googleAuthorizer: youtubeAuth.NewAuthorizer(os.Getenv("CLIENT_ID"), os.Getenv("CLIENT_SECRET"), "http://localhost/authCallback", []string{youtubeapi.YoutubeReadonlyScope}),
+		server:           server.NewWebServer("html", "", 443, os.Getenv("PUBKEY"), os.Getenv("PRVKEY")),
+		googleAuthorizer: youtubeAuth.NewAuthorizer(os.Getenv("CLIENT_ID"), os.Getenv("CLIENT_SECRET"), "https://localhost/authCallback", []string{youtubeapi.YoutubeReadonlyScope}),
 	}
 
 	app.server.GET("/", app.home)
