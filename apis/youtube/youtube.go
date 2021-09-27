@@ -34,15 +34,6 @@ func NewYoutubeAPI(options ...option.ClientOption) *YoutubeAPI {
 	return api
 }
 
-// Must will panic if api is nil
-func Must(api *YoutubeAPI) *YoutubeAPI {
-	if api == nil {
-		logrus.Panic("Failed creating youtube api")
-	}
-
-	return api
-}
-
 func (api *YoutubeAPI) GetAllPlaylists(page string, pageSize uint) (playlists []model.YoutubePlaylist, nextPage string, prevPage string, err error) {
 	if pageSize > maxPageSize {
 		pageSize = maxPageSize
@@ -71,4 +62,28 @@ func (api *YoutubeAPI) GetAllPlaylists(page string, pageSize uint) (playlists []
 	}
 
 	return playlists, res.NextPageToken, res.PrevPageToken, nil
+}
+
+func (api *YoutubeAPI) GetPlaylistSongs(playlistId, page string) (videos []model.YoutubeVideo, nextPage string, err error) {
+	request := api.service.PlaylistItems.List([]string{"contentDetails", "snippet"}).PlaylistId(playlistId).MaxResults(50)
+	if page != "" {
+		request.PageToken(page)
+	}
+
+	response, err := request.Do()
+	if err != nil {
+		return nil, "", err
+	}
+
+	for _, item := range response.Items {
+		videos = append(videos, model.YoutubeVideo{
+			YoutubeItem: model.YoutubeItem{
+				Title:        item.Snippet.Title,
+				ThumbnailURL: item.Snippet.Thumbnails.Default.Url,
+				Id:           item.ContentDetails.VideoId,
+			},
+		})
+	}
+
+	return videos, response.NextPageToken, nil
 }

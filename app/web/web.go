@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/tomwhy/PlaylistMusicDownloader/apis/downloader"
 	"github.com/tomwhy/PlaylistMusicDownloader/apis/youtube"
 	youtubeAuth "github.com/tomwhy/PlaylistMusicDownloader/apis/youtube/auth"
 	youtubeModel "github.com/tomwhy/PlaylistMusicDownloader/apis/youtube/model"
@@ -35,7 +36,10 @@ func NewWebApp() app.App {
 	app.server.GET("/auth", app.authentication)
 	app.server.GET("/authCallback", app.authenticateCallback)
 	app.server.GET("/revoke", app.logout, app.authMiddleware)
-	app.server.GET("/download/:id", app.home, app.authMiddleware)
+	app.server.GET("/download/:id", app.downloadPage, app.authMiddleware)
+
+	app.server.GET("/api/download/:id/", app.downloadPlaylistSongs, app.authMiddleware)
+	app.server.GET("/api/download/:id/:page", app.downloadPlaylistSongs, app.authMiddleware)
 
 	return app
 }
@@ -92,8 +96,7 @@ func (app *WebApp) home(c echo.Context) error {
 }
 
 func (app *WebApp) loggedOutHome(c echo.Context) error {
-	file, _ := ioutil.ReadFile("html/loggedOutHome.html")
-	return c.HTMLBlob(http.StatusOK, file)
+	return RenderHTML(c, "html/loggedOutHome.html")
 }
 
 func (app *WebApp) loggedInHome(c echo.Context) error {
@@ -122,14 +125,42 @@ func (app *WebApp) logout(c echo.Context) error {
 	urlParams.Add("token", token.(oauth2.Token).AccessToken)
 	revokeURL := "https://oauth2.googleapis.com/revoke?" + urlParams.Encode()
 
-	_, err := http.PostForm(revokeURL, url.Values{})
+	response, err := http.PostForm(revokeURL, url.Values{})
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed logging out")
 	}
+	defer response.Body.Close()
 
 	session.Delete("token")
 	session.Save()
 	return c.Redirect(http.StatusTemporaryRedirect, "/")
+}
+
+func (app *WebApp) downloadPage(c echo.Context) error {
+	return c.Render(http.StatusOK, "download.html", c.Param("id"))
+}
+
+func (app *WebApp) downloadPlaylistSongs(c echo.Context) error {
+	songs, nextPage, err := app.youtubeAPI(c).GetPlaylistSongs(c.Param("id"), c.Param("page"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed getting playlist songs")
+	}
+
+	downloadApi := downloader.NewMp3DownloadAPI(os.Getenv("RAPID_KEY"))
+	for i, song := range songs {
+		downloadUrl, err := downloadApi.DownloadSong(song.Id)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Failed getting download url for song: ", err)
+		}
+
+		songs[i].DownloadUrl = downloadUrl
+	}
+
+	response := struct {
+		Songs []youtubeModel.YoutubeVideo
+		Next  string
+	}{songs, nextPage}
+	return c.JSON(http.StatusOK, response)
 }
 
 func (app *WebApp) isLoggedIn(c echo.Context) bool {
@@ -147,4 +178,9 @@ func (app *WebApp) youtubeAPI(c echo.Context) *youtube.YoutubeAPI {
 	token, _ := session.Get("token")
 	client := app.googleAuthorizer.CreateClient(token.(oauth2.Token))
 	return youtube.NewYoutubeAPI(option.WithHTTPClient(client))
+}
+
+func RenderHTML(c echo.Context, filepath string) error {
+	file, _ := ioutil.ReadFile(filepath)
+	return c.HTMLBlob(http.StatusOK, file)
 }

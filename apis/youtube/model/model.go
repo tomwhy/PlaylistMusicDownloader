@@ -10,3 +10,8 @@ type YoutubePlaylist struct {
 	YoutubeItem
 	ItemCount uint
 }
+
+type YoutubeVideo struct {
+	YoutubeItem
+	DownloadUrl string
+}

@@ -37,7 +37,7 @@ func (auth *Authorizer) GetAuthURL() (string, string, error) {
 		logrus.Error("Failed generating random state.", err)
 	}
 
-	return auth.conf.AuthCodeURL(state), state, err
+	return auth.conf.AuthCodeURL(state, oauth2.AccessTypeOffline), state, err
 }
 
 func (auth *Authorizer) GetToken(authCode string) (*oauth2.Token, error) {
