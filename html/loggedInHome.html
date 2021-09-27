@@ -1,0 +1,29 @@
+<html>
+  <head>
+    <title>Music Playlist Downloader</title>
+    <link rel="shortcut icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="/static/css/home.css"/>
+  </head>
+  <body>
+    <div class="toolbar">
+      <a class="button" href="/revoke">Logout</a>
+    </div>
+
+    {{range .Playlists}}
+    <a href="/download/{{.Id}}">
+      <div class="playlist">
+        <img class="thumbnail" src={{ .ThumbnailURL }} />
+        <div class="details">
+          <div class="title">{{.Title}}</div>
+          <div class="size">{{.ItemCount}} songs</div>
+        </div>
+      </div>
+    </a>
+    {{end}}
+
+    <div class="pageNav">
+      <a href="/?page={{.Next}}" class="button"> >> </a>
+      <a href="/?page={{.Prev}}" class="button"> << </a>
+    </div>
+  </body>
+</html>

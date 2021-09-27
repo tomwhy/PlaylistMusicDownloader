@@ -1,0 +1,65 @@
+.playlist {
+    overflow: hidden;
+    margin-top: 15px;
+    color: black;
+}
+
+.thumbnail {
+    float: left;
+}
+
+.details {
+    overflow: hidden;
+    word-wrap: normal;
+    float: left;
+    margin-left: 30px;
+}
+
+.details > .title {
+    font-size: xx-large;
+    font-weight: bold;
+}
+
+.details > .size {
+    font-size: large;
+    margin-top: 40px;
+    top: 100%;
+}
+
+.toolbar {
+    position: sticky;
+    float: right;
+    top: 0;
+    width: auto;
+    height: 7%;
+}
+
+
+.toolbar > .button, .pageNav > .button {
+    position: relative;
+    top: 50%;
+    
+    transform: translate(0, -50%);
+    margin-left: 5px;
+    
+    background-color: gainsboro;
+
+    float: right;
+    color: black;
+    text-decoration: none;
+    border-style: solid;
+    border-radius: 10px;
+    padding: 5px;
+}
+
+.pageNav > .button {
+    top: 0%;
+    left: -50%;
+
+}
+
+.pageNav {
+    margin: 50px;
+    position: relative;
+    width: 100%;
+}

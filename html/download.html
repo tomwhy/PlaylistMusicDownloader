@@ -1,0 +1,32 @@
+<html>
+  <head>
+    <title>Music Playlist Downloader</title>
+    <link rel="shortcut icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="/static/css/home.css"/>
+  </head>
+  <body>
+    <div class="toolbar">
+      <a class="button" href="/">Home</a>
+    </div>
+
+    <div id="status" style="text-align: center;"><h1>Downloading...</h1></div>
+
+    {{range .}}
+    <div class="playlist" >
+      <img class="thumbnail" src="{{.ThumbnailURL}}" />
+      <div class="details">
+        <div class="title">{{.Title}}</div>
+      </div>
+    </div>
+
+    <iframe style="display: none;" src="{{.DownloadURL}}"></iframe>
+    {{end}}
+
+    <script>
+      window.addEventListener("load", function(){
+        document.getElementById("status").innerHTML = "<h1>Playlist Downloaded</h1>"
+      });
+    </script>
+    
+  </body>
+</html>
