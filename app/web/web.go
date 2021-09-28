@@ -1,11 +1,13 @@
 package web
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 
+	"github.com/sirupsen/logrus"
 	"github.com/tomwhy/PlaylistMusicDownloader/apis/downloader"
 	"github.com/tomwhy/PlaylistMusicDownloader/apis/youtube"
 	youtubeAuth "github.com/tomwhy/PlaylistMusicDownloader/apis/youtube/auth"
@@ -28,9 +30,14 @@ type WebApp struct {
 
 func NewWebApp() app.App {
 	app := &WebApp{
-		server:           server.NewWebServer("html", "", 443, os.Getenv("PUBKEY"), os.Getenv("PRVKEY")),
-		googleAuthorizer: youtubeAuth.NewAuthorizer(os.Getenv("CLIENT_ID"), os.Getenv("CLIENT_SECRET"), "https://localhost/authCallback", []string{youtubeapi.YoutubeReadonlyScope}),
+		server: server.NewWebServer("./html", "", os.Getenv("PORT")),
+		googleAuthorizer: youtubeAuth.NewAuthorizer(os.Getenv("CLIENT_ID"),
+			os.Getenv("CLIENT_SECRET"),
+			fmt.Sprintf("https://%v/authCallback", os.Getenv("HOST")),
+			[]string{youtubeapi.YoutubeReadonlyScope}),
 	}
+
+	app.server.Use(app.httpsRedirect)
 
 	app.server.GET("/", app.home)
 	app.server.GET("/auth", app.authentication)
@@ -42,6 +49,17 @@ func NewWebApp() app.App {
 	app.server.GET("/api/download/:id/:page", app.downloadPlaylistSongs, app.authMiddleware)
 
 	return app
+}
+
+func (app *WebApp) httpsRedirect(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		originalProto := c.Request().Header.Get("x-forwarded-proto")
+		if originalProto != "https" {
+			return c.Redirect(http.StatusTemporaryRedirect, "https://"+c.Request().Host+c.Request().RequestURI)
+		}
+
+		return next(c)
+	}
 }
 
 func (app *WebApp) authMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
@@ -58,7 +76,8 @@ func (app *WebApp) authentication(c echo.Context) error {
 	session := app.server.Session(c)
 	authentication_url, state, err := app.googleAuthorizer.GetAuthURL()
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err)
+		logrus.Error("Failed getting Authentication url", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed authenticating")
 	}
 
 	session.Set("state", state)
@@ -73,11 +92,13 @@ func (app *WebApp) authenticateCallback(c echo.Context) error {
 	if state, ok := session.Get("state"); !ok || c.QueryParam("state") != state {
 		session.Delete("state")
 		session.Save()
+		logrus.Info("Got invalid state")
 		return echo.NewHTTPError(http.StatusUnauthorized, "Failed authentication")
 	}
 
 	token, err := app.googleAuthorizer.GetToken(c.QueryParam("code"))
 	if err != nil {
+		logrus.Error("Failed getting token.", err)
 		return echo.NewHTTPError(http.StatusUnauthorized, "Failed authentication")
 	}
 
@@ -96,7 +117,7 @@ func (app *WebApp) home(c echo.Context) error {
 }
 
 func (app *WebApp) loggedOutHome(c echo.Context) error {
-	return RenderHTML(c, "html/loggedOutHome.html")
+	return RenderHTML(c, "./html/loggedOutHome.html")
 }
 
 func (app *WebApp) loggedInHome(c echo.Context) error {
@@ -105,7 +126,8 @@ func (app *WebApp) loggedInHome(c echo.Context) error {
 
 	playlists, nextPage, prevPage, err := api.GetAllPlaylists(page, 50)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err)
+		logrus.Error("Failed getting playlists.", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed getting playlists")
 	}
 
 	params := struct {
@@ -127,6 +149,7 @@ func (app *WebApp) logout(c echo.Context) error {
 
 	response, err := http.PostForm(revokeURL, url.Values{})
 	if err != nil {
+		logrus.Error("Failed revoking token.", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed logging out")
 	}
 	defer response.Body.Close()
@@ -143,6 +166,7 @@ func (app *WebApp) downloadPage(c echo.Context) error {
 func (app *WebApp) downloadPlaylistSongs(c echo.Context) error {
 	songs, nextPage, err := app.youtubeAPI(c).GetPlaylistSongs(c.Param("id"), c.Param("page"))
 	if err != nil {
+		logrus.Error("Failed getting songs for playlist: ", c.Param("id"), ".", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed getting playlist songs")
 	}
 
@@ -150,6 +174,7 @@ func (app *WebApp) downloadPlaylistSongs(c echo.Context) error {
 	for i, song := range songs {
 		downloadUrl, err := downloadApi.DownloadSong(song.Id)
 		if err != nil {
+			logrus.Error("Failed getting download url for video: ", song.Id, ".", err)
 			return echo.NewHTTPError(http.StatusInternalServerError, "Failed getting download url for song: ", err)
 		}
 
@@ -181,6 +206,10 @@ func (app *WebApp) youtubeAPI(c echo.Context) *youtube.YoutubeAPI {
 }
 
 func RenderHTML(c echo.Context, filepath string) error {
-	file, _ := ioutil.ReadFile(filepath)
+	file, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		logrus.Error("Could not read file: ", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Could not find file")
+	}
 	return c.HTMLBlob(http.StatusOK, file)
 }

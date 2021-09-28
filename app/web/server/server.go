@@ -13,27 +13,23 @@ type WebServer struct {
 	address string
 
 	echoServer *echo.Echo
-	pubKey     string
-	prvKey     string
 }
 
-func NewWebServer(root, host string, port uint16, pubKey, prvKey string) *WebServer {
+func NewWebServer(root, host, port string) *WebServer {
 	server := &WebServer{
 		fmt.Sprintf("%v:%v", host, port),
 		echo.New(),
-		pubKey,
-		prvKey,
 	}
 
 	server.echoServer.Renderer = NewTemplateRenderer(root)
 	server.echoServer.Use(echossesion.New())
-	server.echoServer.Static("/static", "html/static")
+	server.echoServer.Static("/static", "./html/static")
 	return server
 }
 
 func (s *WebServer) Serve() error {
 	var err error
-	err = s.echoServer.StartTLS(s.address, s.pubKey, s.prvKey)
+	err = s.echoServer.Start(s.address)
 	if err != http.ErrServerClosed {
 		return err
 	}
@@ -43,6 +39,10 @@ func (s *WebServer) Serve() error {
 
 func (s *WebServer) GET(route string, handler echo.HandlerFunc, middleware ...echo.MiddlewareFunc) {
 	s.echoServer.GET(route, handler, middleware...)
+}
+
+func (s *WebServer) Use(middleware echo.MiddlewareFunc) {
+	s.echoServer.Use(middleware)
 }
 
 func (s *WebServer) Session(c echo.Context) session.Store {
