@@ -28,7 +28,7 @@ type WebApp struct {
 
 func NewWebApp() app.App {
 	app := &WebApp{
-		server:           server.NewWebServer("html", "", 443, os.Getenv("PUBKEY"), os.Getenv("PRVKEY")),
+		server:           server.NewWebServer("html", "", 80),
 		googleAuthorizer: youtubeAuth.NewAuthorizer(os.Getenv("CLIENT_ID"), os.Getenv("CLIENT_SECRET"), "https://localhost/authCallback", []string{youtubeapi.YoutubeReadonlyScope}),
 	}
 
@@ -42,6 +42,17 @@ func NewWebApp() app.App {
 	app.server.GET("/api/download/:id/:page", app.downloadPlaylistSongs, app.authMiddleware)
 
 	return app
+}
+
+func (app *WebApp) httpsRedirect(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		originalProto := c.Request().Header.Get("x-forwarded-proto")
+		if originalProto != "https" {
+			return c.Redirect(http.StatusTemporaryRedirect, "https://"+c.Request().Host+c.Request().RequestURI)
+		}
+
+		return next(c)
+	}
 }
 
 func (app *WebApp) authMiddleware(next echo.HandlerFunc) echo.HandlerFunc {

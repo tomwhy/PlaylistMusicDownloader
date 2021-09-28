@@ -13,16 +13,12 @@ type WebServer struct {
 	address string
 
 	echoServer *echo.Echo
-	pubKey     string
-	prvKey     string
 }
 
-func NewWebServer(root, host string, port uint16, pubKey, prvKey string) *WebServer {
+func NewWebServer(root, host string, port uint16) *WebServer {
 	server := &WebServer{
 		fmt.Sprintf("%v:%v", host, port),
 		echo.New(),
-		pubKey,
-		prvKey,
 	}
 
 	server.echoServer.Renderer = NewTemplateRenderer(root)
@@ -33,7 +29,7 @@ func NewWebServer(root, host string, port uint16, pubKey, prvKey string) *WebSer
 
 func (s *WebServer) Serve() error {
 	var err error
-	err = s.echoServer.StartTLS(s.address, s.pubKey, s.prvKey)
+	err = s.echoServer.Start(s.address)
 	if err != http.ErrServerClosed {
 		return err
 	}
