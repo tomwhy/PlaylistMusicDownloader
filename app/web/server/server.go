@@ -15,7 +15,7 @@ type WebServer struct {
 	echoServer *echo.Echo
 }
 
-func NewWebServer(root, host string, port uint16) *WebServer {
+func NewWebServer(root, host, port string) *WebServer {
 	server := &WebServer{
 		fmt.Sprintf("%v:%v", host, port),
 		echo.New(),
