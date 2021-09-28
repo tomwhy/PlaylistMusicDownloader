@@ -29,7 +29,7 @@ type WebApp struct {
 
 func NewWebApp() app.App {
 	app := &WebApp{
-		server: server.NewWebServer("~/html", "", os.Getenv("PORT")),
+		server: server.NewWebServer("./html", "", os.Getenv("PORT")),
 		googleAuthorizer: youtubeAuth.NewAuthorizer(os.Getenv("CLIENT_ID"),
 			os.Getenv("CLIENT_SECRET"),
 			fmt.Sprintf("https://%v/authCallback", os.Getenv("HOST")),
@@ -111,7 +111,7 @@ func (app *WebApp) home(c echo.Context) error {
 }
 
 func (app *WebApp) loggedOutHome(c echo.Context) error {
-	return RenderHTML(c, "~/html/loggedOutHome.html")
+	return RenderHTML(c, "./html/loggedOutHome.html")
 }
 
 func (app *WebApp) loggedInHome(c echo.Context) error {
