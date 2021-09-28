@@ -192,6 +192,9 @@ func (app *WebApp) youtubeAPI(c echo.Context) *youtube.YoutubeAPI {
 }
 
 func RenderHTML(c echo.Context, filepath string) error {
-	file, _ := ioutil.ReadFile(filepath)
+	file, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Could not find file")
+	}
 	return c.HTMLBlob(http.StatusOK, file)
 }
