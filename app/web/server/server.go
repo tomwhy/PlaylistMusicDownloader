@@ -23,7 +23,7 @@ func NewWebServer(root, host, port string) *WebServer {
 
 	server.echoServer.Renderer = NewTemplateRenderer(root)
 	server.echoServer.Use(echossesion.New())
-	server.echoServer.Static("/static", "html/static")
+	server.echoServer.Static("/static", "~/html/static")
 	return server
 }
 
