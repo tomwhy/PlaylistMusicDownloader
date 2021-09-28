@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/sirupsen/logrus"
 	"github.com/tomwhy/PlaylistMusicDownloader/apis/downloader"
 	"github.com/tomwhy/PlaylistMusicDownloader/apis/youtube"
 	youtubeAuth "github.com/tomwhy/PlaylistMusicDownloader/apis/youtube/auth"
@@ -73,7 +74,8 @@ func (app *WebApp) authentication(c echo.Context) error {
 	session := app.server.Session(c)
 	authentication_url, state, err := app.googleAuthorizer.GetAuthURL()
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err)
+		logrus.Error("Failed getting Authentication url", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed authenticating")
 	}
 
 	session.Set("state", state)
@@ -88,11 +90,13 @@ func (app *WebApp) authenticateCallback(c echo.Context) error {
 	if state, ok := session.Get("state"); !ok || c.QueryParam("state") != state {
 		session.Delete("state")
 		session.Save()
+		logrus.Info("Got invalid state")
 		return echo.NewHTTPError(http.StatusUnauthorized, "Failed authentication")
 	}
 
 	token, err := app.googleAuthorizer.GetToken(c.QueryParam("code"))
 	if err != nil {
+		logrus.Error("Failed getting token.", err)
 		return echo.NewHTTPError(http.StatusUnauthorized, "Failed authentication")
 	}
 
@@ -120,7 +124,8 @@ func (app *WebApp) loggedInHome(c echo.Context) error {
 
 	playlists, nextPage, prevPage, err := api.GetAllPlaylists(page, 50)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err)
+		logrus.Error("Failed getting playlists.", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed getting playlists")
 	}
 
 	params := struct {
@@ -142,6 +147,7 @@ func (app *WebApp) logout(c echo.Context) error {
 
 	response, err := http.PostForm(revokeURL, url.Values{})
 	if err != nil {
+		logrus.Error("Failed revoking token.", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed logging out")
 	}
 	defer response.Body.Close()
@@ -158,6 +164,7 @@ func (app *WebApp) downloadPage(c echo.Context) error {
 func (app *WebApp) downloadPlaylistSongs(c echo.Context) error {
 	songs, nextPage, err := app.youtubeAPI(c).GetPlaylistSongs(c.Param("id"), c.Param("page"))
 	if err != nil {
+		logrus.Error("Failed getting songs for playlist: ", c.Param("id"), ".", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed getting playlist songs")
 	}
 
@@ -165,6 +172,7 @@ func (app *WebApp) downloadPlaylistSongs(c echo.Context) error {
 	for i, song := range songs {
 		downloadUrl, err := downloadApi.DownloadSong(song.Id)
 		if err != nil {
+			logrus.Error("Failed getting download url for video: ", song.Id, ".", err)
 			return echo.NewHTTPError(http.StatusInternalServerError, "Failed getting download url for song: ", err)
 		}
 
@@ -198,6 +206,7 @@ func (app *WebApp) youtubeAPI(c echo.Context) *youtube.YoutubeAPI {
 func RenderHTML(c echo.Context, filepath string) error {
 	file, err := ioutil.ReadFile(filepath)
 	if err != nil {
+		logrus.Error("Could not read file: ", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "Could not find file")
 	}
 	return c.HTMLBlob(http.StatusOK, file)
