@@ -41,6 +41,10 @@ func (s *WebServer) GET(route string, handler echo.HandlerFunc, middleware ...ec
 	s.echoServer.GET(route, handler, middleware...)
 }
 
+func (s *WebServer) Use(middleware echo.MiddlewareFunc) {
+	s.echoServer.Use(middleware)
+}
+
 func (s *WebServer) Session(c echo.Context) session.Store {
 	return echossesion.FromContext(c)
 }

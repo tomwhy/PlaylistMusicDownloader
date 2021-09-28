@@ -37,6 +37,8 @@ func NewWebApp() app.App {
 			[]string{youtubeapi.YoutubeReadonlyScope}),
 	}
 
+	app.server.Use(app.httpsRedirect)
+
 	app.server.GET("/", app.home)
 	app.server.GET("/auth", app.authentication)
 	app.server.GET("/authCallback", app.authenticateCallback)
