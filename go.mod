@@ -2,6 +2,8 @@ module github.com/tomwhy/PlaylistMusicDownloader
 
 go 1.17
 
+// +heroku goVersion go1.17.1
+
 require (
 	cloud.google.com/go v0.94.1 // indirect
 	github.com/go-session/echo-session v3.0.0+incompatible // indirect
