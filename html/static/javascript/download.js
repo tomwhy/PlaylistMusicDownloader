@@ -28,17 +28,22 @@ function AppendSongToPage(song) {
   detailsDiv = document.createElement("div");
   detailsDiv.className = "details";
 
-  title = document.createElement("div");
+  title = document.createElement("a");
   title.className = "title";
+  title.setAttribute("name", "Title")
   title.innerHTML = song.title;
+  title.setAttribute("href", song.download_url)
+  title.setAttribute("target", "_blank")
+  title.setAttribute("download", `${song.title}.mp3`)
+
   detailsDiv.appendChild(title);
   songDiv.appendChild(detailsDiv);
 
   document.body.appendChild(songDiv);
-  
-  var downloadLink = document.createElement("a")
-  downloadLink.href = song.download_url
-  downloadLink.target = "_blank"
-  downloadLink.download = `${song.title}.mp3`
-  downloadLink.click();
+}
+
+function DownloadAll() {
+  for(let song of document.getElementsByName("Title")) {
+    song.click();
+  }
 }
