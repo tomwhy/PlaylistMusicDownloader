@@ -1,9 +1,9 @@
 package model
 
 type YoutubeItem struct {
-	Title        string
-	ThumbnailURL string
-	Id           string
+	Title        string `json:"title"`
+	ThumbnailURL string `json:"thumbnail_url"`
+	Id           string `json:"id"`
 }
 
 type YoutubePlaylist struct {
@@ -13,5 +13,5 @@ type YoutubePlaylist struct {
 
 type YoutubeVideo struct {
 	YoutubeItem
-	DownloadUrl string
+	DownloadUrl string `json:"download_url"`
 }

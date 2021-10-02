@@ -1,46 +1,44 @@
 function download_songs(playlist_id) {
-    download_page(playlist_id, "")
+  ws = new WebSocket(
+    `wss://${window.location.host}/api/download/${playlist_id}`
+  );
+
+  ws.onmessage = function (msg) {
+    console.log(msg.data)
+    data = JSON.parse(msg.data);
+    console.log(data);
+
+    if (data.type == "error") {
+      alert(data.data);
+    } else {
+      AppendSongToPage(data.data)
+    }
+  };
 }
 
-function download_page(playlist_id, page) {
-    fetch(`/api/download/${playlist_id}/${page}`).then(function(res) {
-        if(!res.ok) {
-            res.text().then(text => alert("Failed Downloading songs: " + text))
-            return
-        }
+function AppendSongToPage(song) {
+  songDiv = document.createElement("div");
+  songDiv.className = "playlist";
 
-        res.json().then(function(data) {
-            console.log(data)
+  thumbnail = document.createElement("img");
+  thumbnail.className = "thumbnail";
+  thumbnail.setAttribute("src", song.thumbnail_url);
+  songDiv.appendChild(thumbnail);
 
-            for(song of data["Songs"]) {
-                songDiv = document.createElement("div")
-                songDiv.className = "playlist"
+  detailsDiv = document.createElement("div");
+  detailsDiv.className = "details";
 
-                thumbnail = document.createElement("img")
-                thumbnail.className = "thumbnail"
-                thumbnail.setAttribute("src", song["ThumbnailURL"])
-                songDiv.appendChild(thumbnail)
+  title = document.createElement("div");
+  title.className = "title";
+  title.innerHTML = song.title;
+  detailsDiv.appendChild(title);
+  songDiv.appendChild(detailsDiv);
 
-                detailsDiv = document.createElement("div")
-                detailsDiv.className = "details"
-
-                title = document.createElement("div")
-                title.className = "title"
-                title.innerHTML = song["Title"]
-                detailsDiv.appendChild(title)
-                songDiv.appendChild(detailsDiv)
-
-                downloadIframe = document.createElement("iframe")
-                downloadIframe.setAttribute("style", "display: none;")
-                downloadIframe.setAttribute("src", song["DownloadUrl"])
-                songDiv.appendChild(downloadIframe)
-
-                document.body.appendChild(songDiv)
-            }
-
-            if(data["Next"] != "") {
-                download_page(playlist_id, data["Next"])
-            }
-        })
-    })
+  document.body.appendChild(songDiv);
+  
+  var downloadLink = document.createElement("a")
+  downloadLink.href = song.download_url
+  downloadLink.target = "_blank"
+  downloadLink.download = `${song.title}.mp3`
+  downloadLink.click();
 }

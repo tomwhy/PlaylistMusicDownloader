@@ -1,1 +1,1 @@
-web: bin/PlaylistMusicDownloader
+web: .\bin\PlaylistMusicDownloader.exe

@@ -6,11 +6,15 @@ go 1.17
 
 require (
 	cloud.google.com/go v0.94.1 // indirect
+	github.com/bitly/go-simplejson v0.5.0 // indirect
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/go-session/echo-session v3.0.0+incompatible // indirect
 	github.com/go-session/session v3.1.2+incompatible // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.1.0 // indirect
+	github.com/gorilla/websocket v1.4.2 // indirect
+	github.com/kkdai/youtube/v2 v2.7.4 // indirect
 	github.com/labstack/echo v3.3.10+incompatible // indirect
 	github.com/labstack/echo/v4 v4.6.1 // indirect
 	github.com/labstack/gommon v0.3.0 // indirect

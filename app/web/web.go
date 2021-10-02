@@ -1,31 +1,37 @@
 package web
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 
+	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
-	"github.com/tomwhy/PlaylistMusicDownloader/apis/downloader"
 	"github.com/tomwhy/PlaylistMusicDownloader/apis/youtube"
 	youtubeAuth "github.com/tomwhy/PlaylistMusicDownloader/apis/youtube/auth"
 	youtubeModel "github.com/tomwhy/PlaylistMusicDownloader/apis/youtube/model"
+	audiodownloader "github.com/tomwhy/PlaylistMusicDownloader/internal/audioDownloader"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/option"
 	youtubeapi "google.golang.org/api/youtube/v3"
 
 	"github.com/tomwhy/PlaylistMusicDownloader/app"
+	"github.com/tomwhy/PlaylistMusicDownloader/app/web/model"
 	"github.com/tomwhy/PlaylistMusicDownloader/app/web/server"
 
 	"github.com/labstack/echo"
+	"github.com/labstack/echo/middleware"
 )
 
 type WebApp struct {
 	server *server.WebServer
 
 	googleAuthorizer youtubeAuth.Authorizer
+
+	websocketUpgrader websocket.Upgrader
 }
 
 func NewWebApp() app.App {
@@ -35,9 +41,11 @@ func NewWebApp() app.App {
 			os.Getenv("CLIENT_SECRET"),
 			fmt.Sprintf("https://%v/authCallback", os.Getenv("HOST")),
 			[]string{youtubeapi.YoutubeReadonlyScope}),
+		websocketUpgrader: websocket.Upgrader{},
 	}
 
 	app.server.Use(app.httpsRedirect)
+	app.server.Use(middleware.Recover())
 
 	app.server.GET("/", app.home)
 	app.server.GET("/auth", app.authentication)
@@ -45,9 +53,8 @@ func NewWebApp() app.App {
 	app.server.GET("/revoke", app.logout, app.authMiddleware)
 	app.server.GET("/download/:id", app.downloadPage, app.authMiddleware)
 
-	app.server.GET("/api/download/:id/", app.downloadPlaylistSongs, app.authMiddleware)
-	app.server.GET("/api/download/:id/:page", app.downloadPlaylistSongs, app.authMiddleware)
-
+	app.server.GET("/api/download/:id", app.downloadPlaylistSongs, app.authMiddleware)
+	app.server.GET("/api/download/song/:id", app.downloadSong, app.authMiddleware)
 	return app
 }
 
@@ -164,28 +171,47 @@ func (app *WebApp) downloadPage(c echo.Context) error {
 }
 
 func (app *WebApp) downloadPlaylistSongs(c echo.Context) error {
-	songs, nextPage, err := app.youtubeAPI(c).GetPlaylistSongs(c.Param("id"), c.Param("page"))
+	ws, err := app.websocketUpgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
-		logrus.Error("Failed getting songs for playlist: ", c.Param("id"), ".", err)
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed getting playlist songs")
+		logrus.Error("Failed upgrading to websocket")
+		return err
 	}
+	defer ws.Close()
 
-	downloadApi := downloader.NewMp3DownloadAPI(os.Getenv("RAPID_KEY"))
-	for i, song := range songs {
-		downloadUrl, err := downloadApi.DownloadSong(song.Id)
+	songsContext, cancelSongs := context.WithCancel(context.Background())
+	songs, errChan := app.youtubeAPI(c).GetPlaylistSongs(songsContext, c.Param("id"))
+	for song := range songs {
+		logrus.Info("Getting urls for: ", song.Title)
+
 		if err != nil {
-			logrus.Error("Failed getting download url for video: ", song.Id, ".", err)
-			return echo.NewHTTPError(http.StatusInternalServerError, "Failed getting download url for song: ", err)
+			logrus.Error("Failed getting songs for playlist: ", c.Param("id"), ".", err)
+			ws.WriteJSON(model.WebsocketMessage{MessageType: "error", Data: err.Error()})
+			break
 		}
 
-		songs[i].DownloadUrl = downloadUrl
+		song.DownloadUrl = "/api/download/song/" + song.Id
+		ws.WriteJSON(model.WebsocketMessage{MessageType: "song", Data: song})
 	}
 
-	response := struct {
-		Songs []youtubeModel.YoutubeVideo
-		Next  string
-	}{songs, nextPage}
-	return c.JSON(http.StatusOK, response)
+	cancelSongs()
+	err = <-errChan
+	if err != nil {
+		ws.WriteJSON(model.WebsocketMessage{MessageType: "error", Data: err.Error()})
+	}
+
+	return err
+}
+
+func (app *WebApp) downloadSong(c echo.Context) error {
+	videoId := c.Param("id")
+
+	stream, err := audiodownloader.DownloadAudio(videoId)
+	if err != nil {
+		logrus.Error("Failed to download song: ", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Could not download song")
+	}
+
+	return c.Stream(http.StatusOK, echo.MIMEOctetStream, stream)
 }
 
 func (app *WebApp) isLoggedIn(c echo.Context) bool {

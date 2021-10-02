@@ -64,26 +64,46 @@ func (api *YoutubeAPI) GetAllPlaylists(page string, pageSize uint) (playlists []
 	return playlists, res.NextPageToken, res.PrevPageToken, nil
 }
 
-func (api *YoutubeAPI) GetPlaylistSongs(playlistId, page string) (videos []model.YoutubeVideo, nextPage string, err error) {
-	request := api.service.PlaylistItems.List([]string{"contentDetails", "snippet"}).PlaylistId(playlistId).MaxResults(50)
-	if page != "" {
-		request.PageToken(page)
-	}
+func (api *YoutubeAPI) GetPlaylistSongs(c context.Context, playlistId string) (<-chan model.YoutubeVideo, <-chan error) {
+	videosOut := make(chan model.YoutubeVideo, 1)
+	errorsOut := make(chan error, 1)
 
-	response, err := request.Do()
-	if err != nil {
-		return nil, "", err
-	}
+	go func() {
+		defer close(videosOut)
+		defer close(errorsOut)
 
-	for _, item := range response.Items {
-		videos = append(videos, model.YoutubeVideo{
-			YoutubeItem: model.YoutubeItem{
-				Title:        item.Snippet.Title,
-				ThumbnailURL: item.Snippet.Thumbnails.Default.Url,
-				Id:           item.ContentDetails.VideoId,
-			},
-		})
-	}
+		request := api.service.PlaylistItems.List([]string{"contentDetails", "snippet"}).PlaylistId(playlistId).MaxResults(50)
 
-	return videos, response.NextPageToken, nil
+		for {
+			select {
+			case <-c.Done():
+				return
+			default:
+
+				response, err := request.Do()
+				if err != nil {
+					errorsOut <- err
+					return
+				}
+
+				for _, item := range response.Items {
+					videosOut <- model.YoutubeVideo{
+						YoutubeItem: model.YoutubeItem{
+							Title:        item.Snippet.Title,
+							ThumbnailURL: item.Snippet.Thumbnails.Default.Url,
+							Id:           item.ContentDetails.VideoId,
+						},
+					}
+				}
+
+				if response.NextPageToken != "" {
+					request = request.PageToken(response.NextPageToken)
+				} else {
+					return
+				}
+			}
+		}
+	}()
+
+	return videosOut, errorsOut
 }
