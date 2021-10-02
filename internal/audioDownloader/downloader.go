@@ -2,6 +2,7 @@ package audiodownloader
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 
@@ -18,23 +19,23 @@ func getAudioFormatIndex(video *youtube.Video) (int, error) {
 	return 0, errors.New("audio format was not found")
 }
 
-func DownloadAudio(videoId string) (io.Reader, error) {
+func DownloadAudio(videoId string) (io.Reader, string, error) {
 	client := youtube.Client{}
 
 	video, err := client.GetVideo(videoId)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	audioFormatIndex, err := getAudioFormatIndex(video)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	stream, _, err := client.GetStream(video, &video.Formats[audioFormatIndex])
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	return stream, nil
+	return stream, fmt.Sprintf("%v.mp3", video.Title), nil
 }

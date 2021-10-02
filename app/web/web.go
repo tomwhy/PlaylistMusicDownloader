@@ -205,12 +205,13 @@ func (app *WebApp) downloadPlaylistSongs(c echo.Context) error {
 func (app *WebApp) downloadSong(c echo.Context) error {
 	videoId := c.Param("id")
 
-	stream, err := audiodownloader.DownloadAudio(videoId)
+	stream, filename, err := audiodownloader.DownloadAudio(videoId)
 	if err != nil {
 		logrus.Error("Failed to download song: ", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "Could not download song")
 	}
 
+	c.Response().Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename="+filename))
 	return c.Stream(http.StatusOK, echo.MIMEOctetStream, stream)
 }
 
