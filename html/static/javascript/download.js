@@ -19,6 +19,7 @@ function download_songs(playlist_id) {
 function AppendSongToPage(song) {
   songDiv = document.createElement("div");
   songDiv.className = "playlist";
+  songDiv.setAttribute("name", "song")
 
   thumbnail = document.createElement("img");
   thumbnail.className = "thumbnail";
@@ -28,22 +29,31 @@ function AppendSongToPage(song) {
   detailsDiv = document.createElement("div");
   detailsDiv.className = "details";
 
-  title = document.createElement("a");
+  title = document.createElement("div");
   title.className = "title";
-  title.setAttribute("name", "Title")
   title.innerHTML = song.title;
-  title.setAttribute("href", song.download_url)
-  title.setAttribute("target", "_blank")
-  title.setAttribute("download", `${song.title}.mp3`)
 
   detailsDiv.appendChild(title);
   songDiv.appendChild(detailsDiv);
+  songDiv.onclick = function(event) {
+    browser.downloads.download({
+      url: song.download_url,
+      filename: `${song.title}.mp3`,
+      conflictAction : 'uniquify'
+    })
+
+
+    // var download = document.createElement("iframe")
+    // download.setAttribute("style", "display: none;") 
+    // download.setAttribute("src", song.download_url)
+    // document.body.appendChild(download)
+  }
 
   document.body.appendChild(songDiv);
 }
 
 function DownloadAll() {
-  for(let song of document.getElementsByName("Title")) {
+  for(let song of document.getElementsByName("song")) {
     song.click();
   }
 }
