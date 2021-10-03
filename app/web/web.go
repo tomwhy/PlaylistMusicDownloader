@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -178,22 +177,14 @@ func (app *WebApp) downloadPlaylistSongs(c echo.Context) error {
 	}
 	defer ws.Close()
 
-	songsContext, cancelSongs := context.WithCancel(context.Background())
-	songs, errChan := app.youtubeAPI(c).GetPlaylistSongs(songsContext, c.Param("id"))
+	songs, errChan := app.youtubeAPI(c).GetPlaylistSongs(c.Param("id"))
 	for song := range songs {
-		logrus.Info("Getting urls for: ", song.Title)
+		logrus.Info("Getting urls for: ", song.Title, ". ID: ", song.Id)
+		song.DownloadUrl = "https://" + os.Getenv("HOST") + "/api/download/song/" + song.Id
 
-		if err != nil {
-			logrus.Error("Failed getting songs for playlist: ", c.Param("id"), ".", err)
-			ws.WriteJSON(model.WebsocketMessage{MessageType: "error", Data: err.Error()})
-			break
-		}
-
-		song.DownloadUrl = "/api/download/song/" + song.Id
 		ws.WriteJSON(model.WebsocketMessage{MessageType: "song", Data: song})
 	}
 
-	cancelSongs()
 	err = <-errChan
 	if err != nil {
 		ws.WriteJSON(model.WebsocketMessage{MessageType: "error", Data: err.Error()})

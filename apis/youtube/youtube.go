@@ -64,7 +64,7 @@ func (api *YoutubeAPI) GetAllPlaylists(page string, pageSize uint) (playlists []
 	return playlists, res.NextPageToken, res.PrevPageToken, nil
 }
 
-func (api *YoutubeAPI) GetPlaylistSongs(c context.Context, playlistId string) (<-chan model.YoutubeVideo, <-chan error) {
+func (api *YoutubeAPI) GetPlaylistSongs(playlistId string) (<-chan model.YoutubeVideo, <-chan error) {
 	videosOut := make(chan model.YoutubeVideo, 1)
 	errorsOut := make(chan error, 1)
 
@@ -75,32 +75,27 @@ func (api *YoutubeAPI) GetPlaylistSongs(c context.Context, playlistId string) (<
 		request := api.service.PlaylistItems.List([]string{"contentDetails", "snippet"}).PlaylistId(playlistId).MaxResults(50)
 
 		for {
-			select {
-			case <-c.Done():
+
+			response, err := request.Do()
+			if err != nil {
+				errorsOut <- err
 				return
-			default:
+			}
 
-				response, err := request.Do()
-				if err != nil {
-					errorsOut <- err
-					return
+			for _, item := range response.Items {
+				videosOut <- model.YoutubeVideo{
+					YoutubeItem: model.YoutubeItem{
+						Title:        item.Snippet.Title,
+						ThumbnailURL: item.Snippet.Thumbnails.Default.Url,
+						Id:           item.ContentDetails.VideoId,
+					},
 				}
+			}
 
-				for _, item := range response.Items {
-					videosOut <- model.YoutubeVideo{
-						YoutubeItem: model.YoutubeItem{
-							Title:        item.Snippet.Title,
-							ThumbnailURL: item.Snippet.Thumbnails.Default.Url,
-							Id:           item.ContentDetails.VideoId,
-						},
-					}
-				}
-
-				if response.NextPageToken != "" {
-					request = request.PageToken(response.NextPageToken)
-				} else {
-					return
-				}
+			if response.NextPageToken != "" {
+				request = request.PageToken(response.NextPageToken)
+			} else {
+				return
 			}
 		}
 	}()

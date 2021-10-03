@@ -39,3 +39,19 @@ func DownloadAudio(videoId string) (io.Reader, string, error) {
 
 	return stream, fmt.Sprintf("%v.mp3", video.Title), nil
 }
+
+func GetDownloadURL(videoId string) (string, error) {
+	client := youtube.Client{}
+
+	video, err := client.GetVideo(videoId)
+	if err != nil {
+		return "", err
+	}
+
+	audioFormatIndex, err := getAudioFormatIndex(video)
+	if err != nil {
+		return "", err
+	}
+
+	return client.GetStreamURL(video, &video.Formats[audioFormatIndex])
+}

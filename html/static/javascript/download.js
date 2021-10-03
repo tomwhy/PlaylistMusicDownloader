@@ -31,6 +31,7 @@ function AppendSongToPage(song) {
   detailsDiv.className = "details";
 
   title = document.createElement("div");
+  title.className = "title"
   title.innerHTML = song.title;
   detailsDiv.appendChild(title);
 
