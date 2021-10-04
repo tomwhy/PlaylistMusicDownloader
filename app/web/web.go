@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
+	"github.com/tomwhy/PlaylistMusicDownloader/apis/downloader"
 	"github.com/tomwhy/PlaylistMusicDownloader/apis/youtube"
 	youtubeAuth "github.com/tomwhy/PlaylistMusicDownloader/apis/youtube/auth"
 	youtubeModel "github.com/tomwhy/PlaylistMusicDownloader/apis/youtube/model"
@@ -177,10 +178,25 @@ func (app *WebApp) downloadPlaylistSongs(c echo.Context) error {
 	}
 	defer ws.Close()
 
+	rapidDownloader := downloader.NewMp3DownloadAPI(os.Getenv("RAPID_KEY"))
+
 	songs, errChan := app.youtubeAPI(c).GetPlaylistSongs(c.Param("id"))
 	for song := range songs {
 		logrus.Info("Getting urls for: ", song.Title, ". ID: ", song.Id)
-		song.DownloadUrl = "https://" + os.Getenv("HOST") + "/api/download/song/" + song.Id
+
+		downloadURL := "/api/download/song/" + song.Id
+		_, _, err := audiodownloader.DownloadAudio(song.Id)
+		if err != nil {
+			logrus.Warn("Failed to get download URL falling back to RAPID API")
+			downloadURL, err = rapidDownloader.DownloadSong(song.Id)
+			if err != nil {
+				logrus.Error("Failed downloading ", song.Id, err)
+				ws.WriteJSON(model.WebsocketMessage{MessageType: "song", Data: "Failed downloading song"})
+				continue
+			}
+		}
+
+		song.DownloadUrl = downloadURL
 
 		ws.WriteJSON(model.WebsocketMessage{MessageType: "song", Data: song})
 	}

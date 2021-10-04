@@ -50,10 +50,10 @@ function AppendSongToPage(song) {
 }
 
 function DownloadAll() {
-  for (let song of document.getElementsByName("song")) {
+  for (let song of document.getElementsByTagName("source")) {
     iframe = document.createElement("iframe");
     iframe.style = "display:none"
-    iframe.src = "/api/download/song/" + song.id
+    iframe.src = song.src
     document.body.appendChild(iframe);
   }
 }
